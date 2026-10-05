@@ -1,7 +1,7 @@
 # tDoodle
 
-A keyboard drawing program for kids, written in Go with tcell. Paint text, lines,
-rectangles, ovals, and freehand pen strokes on an ASCII canvas.
+A terminal drawing tool for text, lines, rectangles, ovals, and freehand marks,
+written in Go with tcell.
 
 ## Run
 
@@ -22,6 +22,10 @@ an error before entering the editor.
 
 Without a filename, tDoodle uses a name such as
 `tdoodle-20261004T213000.123456789.tdoodle` in the current directory.
+
+Use `./tdoodle -h` or `./tdoodle --help` for the command-line synopsis, filename
+behavior, and options. **F7** opens the tool diagrams and keyboard reference
+inside the editor.
 
 Press **Ctrl+C twice within two seconds** to save and quit. **Ctrl+S** saves while
 you keep drawing. A failed save displays an error and leaves the editor open.

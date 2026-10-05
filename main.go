@@ -38,8 +38,16 @@ func parseOptions(args []string, out io.Writer) (options, error) {
 	f.Float64Var(&o.aspect, "aspect", 2, "terminal cell height / width (new drawings)")
 	f.DurationVar(&o.autosave, "autosave", 15*time.Second, "recovery save interval (0 disables)")
 	f.Usage = func() {
-		fmt.Fprintln(out, "Usage: tdoodle [options] [drawing.tdoodle]\n\nA terminal drawing program. F7 opens help; Ctrl+C twice saves and quits.")
+		fmt.Fprintln(out, "tDoodle is a terminal drawing tool for text, lines, rectangles, ovals, and freehand marks.")
+		fmt.Fprintln(out, "\nUsage: tdoodle [options] [filename]")
+		fmt.Fprintln(out, "\nFilename (optional):")
+		fmt.Fprintln(out, "  Existing file: open the drawing for editing.")
+		fmt.Fprintln(out, "  Missing file: start a new drawing and save to that filename.")
+		fmt.Fprintln(out, "  Omitted: start a new drawing and save to a timestamped .tdoodle file in the current directory.")
+		fmt.Fprintln(out, "\nF7 opens drawing help; Ctrl+C twice saves and quits.")
+		fmt.Fprintln(out, "\nOptions:")
 		f.PrintDefaults()
+		fmt.Fprintln(out, "  -h, --help\n        show this command-line help (-help also works)")
 	}
 	if err := f.Parse(args); err != nil {
 		return o, err
