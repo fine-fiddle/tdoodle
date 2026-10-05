@@ -1,0 +1,6 @@
+/tdoodle
+/bin/
+*.tdoodle
+*.tdoodle.recovery
+*.test
+coverage.out
