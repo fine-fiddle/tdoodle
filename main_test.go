@@ -61,10 +61,46 @@ func TestParseOptionsRejectsInvalidInput(t *testing.T) {
 }
 
 func TestParseOptionsHelp(t *testing.T) {
-	var output bytes.Buffer
-	_, err := parseOptions([]string{"-help"}, &output)
-	if !errors.Is(err, flag.ErrHelp) || !bytes.Contains(output.Bytes(), []byte("Usage: tdoodle")) {
-		t.Fatalf("help did not print usage: %q, %v", output.String(), err)
+	var expected string
+	for _, alias := range []string{"-h", "--help", "-help"} {
+		t.Run(alias, func(t *testing.T) {
+			var output bytes.Buffer
+			_, err := parseOptions([]string{alias}, &output)
+			if !errors.Is(err, flag.ErrHelp) {
+				t.Fatalf("help returned %v, want flag.ErrHelp", err)
+			}
+			help := output.String()
+			if expected == "" {
+				expected = help
+			} else if help != expected {
+				t.Fatalf("help aliases produced different output: %q", help)
+			}
+			for _, want := range []string{
+				"terminal drawing tool", "text, lines, rectangles, ovals, and freehand marks",
+				"[filename]", "Filename (optional)", "Existing file", "Missing file",
+				"timestamped .tdoodle file", "current directory", "F7", "Ctrl+C twice",
+				"-aspect", "default 2", "-autosave", "default 15s", "-h, --help",
+			} {
+				if !strings.Contains(help, want) {
+					t.Errorf("help is missing %q: %s", want, help)
+				}
+			}
+		})
+	}
+}
+
+func TestRunHelpReturnsWithoutOpeningTerminal(t *testing.T) {
+	t.Setenv("TERM", "tdoodle-test-unavailable-terminal")
+	for _, alias := range []string{"-h", "--help", "-help"} {
+		t.Run(alias, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			if err := run([]string{alias}, &out, &errOut); err != nil {
+				t.Fatalf("help should succeed without a terminal: %v", err)
+			}
+			if out.Len() != 0 || !strings.Contains(errOut.String(), "Filename (optional)") {
+				t.Fatalf("unexpected help streams: stdout %q, stderr %q", out.String(), errOut.String())
+			}
+		})
 	}
 }
 
