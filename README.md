@@ -1,9 +1,8 @@
 # tDoodle
 
-A terminal drawing tool for text, lines, rectangles, ovals, and freehand marks,
-written in Go with tcell.
+A terminal drawing tool, written in Go with tcell.
 
-## Run
+## Compile
 
 Requires Go 1.25 or later and an interactive terminal.
 
@@ -12,31 +11,16 @@ go build -o tdoodle .
 ./tdoodle castle.tdoodle
 ```
 
-An existing drawing opens for editing. A missing filename starts a blank drawing
-and becomes the save target. Unreadable or malformed existing drawings produce
-an error before entering the editor.
+## Run
 
-```sh
-./tdoodle
-```
+tdoodle [filename] 
+Open a .tdoodle drawing for editing. 
+A missing filename starts a blank drawing with the date time as filename
 
-Without a filename, tDoodle uses a name such as
-`tdoodle-20261004T213000.123456789.tdoodle` in the current directory.
+##  Drawing
 
-Use `./tdoodle -h` or `./tdoodle --help` for the command-line synopsis, filename
-behavior, and options. **F7** opens the tool diagrams and keyboard reference
-inside the editor.
-
-Press **Ctrl+C twice within two seconds** to save and quit. **Ctrl+S** saves while
-you keep drawing. A failed save displays an error and leaves the editor open.
-Quit saves completed artwork; an unfinished shape is still a preview.
-
-## Drawing
-
-The canvas starts at the terminal width and height minus one status row. A
-drawing keeps those dimensions when reopened or resized; the view scrolls to
-follow the cursor. Characters overwrite cells without moving neighboring art.
-Only printable ASCII is accepted.
+The F-keys choose your brush. 
+Return progresses through the phases of your brush's drawing, and backspace regresses.
 
 | Key | Action |
 | --- | --- |
@@ -61,47 +45,7 @@ Only printable ASCII is accepted.
 
 Shapes preview over existing artwork and commit only on the final Enter.
 Escape and switching tools cancel the preview. A completed shape or pen stroke
-is one undo step. Help and colors preserve an unfinished shape.
-
-The oval starts as a circle corrected for rectangular terminal cells. Its second
-radius initially preserves that circle, including radii between cells; moving
-the handle stretches or skews the oval. The two radii need not be perpendicular.
-Collinear radii make a line; zero radii make a point.
-
-### Brushes
-
-Typing a printable character selects it for the active outline or fill.
-Repeated Space presses cycle modes, shown at the right of the status row:
-
-```text
-Outline: Automatic → Space → Transparent → Delete → Automatic
-Fill:    Transparent → Space → Delete → Transparent
-```
-
-Space after a typed outline character selects a literal space; Space after a
-typed fill character selects transparent fill. In text and pen tools, Space is
-always a literal space.
-
-- **Automatic** chooses ASCII outline glyphs from the slope.
-- **Space** paints a space with the selected foreground/background colors.
-- **Transparent** leaves destination cells unchanged.
-- **Delete** restores the canonical blank cell: space, white foreground, black background.
-
-Outline and fill styles are independent. Changing a fill color preserves the
-outline color. Painting replaces destination cells; transparent regions preserve
-earlier artwork. Fill comes from the mathematical shape, including when clipped
-at canvas edges.
-
-### Colors
-
-F6 replaces the status row with a numbered palette:
-
-`1 Red · 2 Orange · 3 Yellow · 4 Green · 5 Blue · 6 Violet · 7 Gray · 8 Brown · 9 White · 0 Black`
-
-A number chooses its color and immediately returns to drawing. F6 or Tab toggles
-foreground/background; arrows and Enter also select colors. Colors marked
-`approx` or `~` use terminal approximations. Linux console backgrounds use eight
-colors, so some choices can look alike. Files keep the logical color names.
+is one undo step. 
 
 ## Saving and recovery
 
