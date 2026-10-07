@@ -126,6 +126,109 @@ func TestStatusUsesOneRowAndPrioritizesMessage(t *testing.T) {
 	}
 }
 
+func TestPreviewStatusPrioritizesActionOnNarrowScreens(t *testing.T) {
+	e := newEditor(t)
+	e.SwitchTool(editor.ToolRectangle)
+	e.Enter()
+	e.Move(4, 3)
+	e.Enter()
+	before := append([]canvas.Cell(nil), e.Doc.Cells...)
+	for _, colors := range []int{0, 8, 16, 256} {
+		for _, width := range []int{0, 1, 2, 3, 8, 10, 20, 24, 27, 30, 40, 80, 140} {
+			t.Run(fmt.Sprintf("%d-colors/%d-columns", colors, width), func(t *testing.T) {
+				s := newScreen(width, 4, colors)
+				Render(s, e)
+				row := s.row(3)
+				if width >= 10 {
+					x := strings.Index(row, "PREVIEW")
+					if x < 0 {
+						t.Fatalf("missing unfinished-shape warning: %q", row)
+					}
+					_, style, _ := s.buffer.Get(x, 3)
+					if !style.HasBold() || style.GetForeground() != ColorFor(canvas.Yellow, false, colors, false) {
+						t.Fatal("preview warning lacks terminal-adapted yellow and bold styling")
+					}
+				}
+				if width >= 24 && !strings.Contains(row, "Enter: draw") {
+					t.Fatalf("brush details displaced the commit action: %q", row)
+				}
+				if width >= 80 && !strings.Contains(row, "Fill: TRANSPARENT") {
+					t.Fatalf("wide status lost brush details: %q", row)
+				}
+				if s.outside || s.shown != 1 || e.Phase != 2 || !reflect.DeepEqual(before, e.Doc.Cells) {
+					t.Fatal("status rendering exceeded the screen or changed the drawing")
+				}
+			})
+		}
+	}
+}
+
+func TestPreviewWarningClearsWhenOperationEnds(t *testing.T) {
+	for _, end := range []tcell.Key{tcell.KeyEnter, tcell.KeyEsc, tcell.KeyF1, tcell.KeyBackspace, tcell.KeyCtrlZ} {
+		t.Run(fmt.Sprint(end), func(t *testing.T) {
+			e := newEditor(t)
+			e.SwitchTool(editor.ToolLine)
+			e.Enter()
+			e.Move(4, 2)
+			s := newScreen(80, 5, 16)
+			Render(s, e)
+			if !strings.Contains(s.row(4), "PREVIEW") {
+				t.Fatal("unfinished line did not warn")
+			}
+			e.HandleKey(tcell.NewEventKey(end, "", tcell.ModNone), time.Now())
+			Render(s, e)
+			if strings.Contains(s.row(4), "PREVIEW") || e.Status().Warning {
+				t.Fatalf("ended operation retained warning: %q", s.row(4))
+			}
+			for x := 0; x < s.w; x++ {
+				_, style, _ := s.buffer.Get(x, 4)
+				if style.GetForeground() != color.Silver {
+					t.Fatalf("ended operation retained warning color at column %d", x)
+				}
+			}
+		})
+	}
+}
+
+func TestPausedPreviewKeepsWarningAndOverlayControls(t *testing.T) {
+	for _, overlay := range []struct {
+		name string
+		key  tcell.Key
+		want string
+	}{
+		{"toolbar", tcell.KeyTab, "Enter: activate"},
+		{"help", tcell.KeyF7, "Esc: close"},
+	} {
+		t.Run(overlay.name, func(t *testing.T) {
+			e := newEditor(t)
+			e.SwitchTool(editor.ToolLine)
+			e.Enter()
+			e.Move(4, 2)
+			preview := e.Preview()
+			e.HandleKey(tcell.NewEventKey(overlay.key, "", tcell.ModNone), time.Now())
+			s := newScreen(140, 8, 16)
+			Render(s, e)
+			row := s.row(7)
+			if !strings.Contains(row, "PREVIEW paused") || !strings.Contains(row, overlay.want) || !strings.Contains(row, "Arrows") {
+				t.Fatalf("paused status lost warning or controls: %q", row)
+			}
+			if e.Phase != 1 || !reflect.DeepEqual(preview, e.Preview()) {
+				t.Fatal("paused status changed the unfinished line")
+			}
+			e.Message = "SAVE FAILED: permission denied"
+			Render(s, e)
+			if !strings.Contains(s.row(7), e.Message) || strings.Contains(s.row(7), "PREVIEW") {
+				t.Fatalf("preview warning displaced save error: %q", s.row(7))
+			}
+			e.HandleKey(tcell.NewEventKey(tcell.KeyEsc, "", tcell.ModNone), time.Now())
+			Render(s, e)
+			if !strings.Contains(s.row(7), "PREVIEW") || !strings.Contains(s.row(7), "Enter: draw") {
+				t.Fatalf("closing overlay lost preview guidance: %q", s.row(7))
+			}
+		})
+	}
+}
+
 func TestRenderingSmallScreensNeverWritesOutside(t *testing.T) {
 	e := newEditor(t)
 	e.Message = "Save failed: drawing-界.tdoodle"

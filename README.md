@@ -60,6 +60,11 @@ Only printable ASCII is accepted.
 | Ctrl+P / Ctrl+L | Open colors / refresh screen |
 
 Shapes preview over existing artwork and commit only on the final Enter.
+The right side of the status row shows the current step and what Enter does
+next. An unfinished shape is marked `PREVIEW` in bold yellow until it is drawn
+or canceled. Narrow terminals keep the preview warning and next action ahead
+of brush details; very narrow terminals show just the warning. Toolbar and help
+show a paused-preview warning while the shape remains unfinished.
 Escape and switching tools cancel the preview. A completed shape or pen stroke
 is one undo step. Help and colors preserve an unfinished shape.
 

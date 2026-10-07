@@ -650,26 +650,96 @@ func paintName(p canvas.Paint) string {
 	}
 }
 
-func (e *Editor) Status() string {
+// StatusInfo supplies progressively shorter prompts for the single status row.
+// Warning marks an unfinished shape independently of the prompt's wording.
+type StatusInfo struct {
+	Text, Compact, Minimal string
+	Warning                bool
+}
+
+func (e *Editor) Status() StatusInfo {
 	if e.Message != "" {
-		return e.Message
+		return StatusInfo{Text: e.Message}
+	}
+	pending := e.Phase > 0 && (e.Tool == ToolLine || e.Tool == ToolRectangle || e.Tool == ToolOval)
+	if e.Help {
+		status := StatusInfo{
+			Text:    "Arrows/PgUp/PgDn: scroll | Esc: close",
+			Compact: "Arrows: scroll | Esc: close",
+			Minimal: "Esc: close",
+			Warning: pending,
+		}
+		if pending {
+			status.Text = "PREVIEW paused | " + status.Text
+			status.Compact = "PREVIEW | " + status.Compact
+			status.Minimal = "PREVIEW | " + status.Minimal
+		}
+		return status
 	}
 	if e.Toolbar {
-		return "Arrows: choose | Enter"
+		status := StatusInfo{
+			Text:    "Arrows: choose | Enter: activate",
+			Compact: "Arrows/Enter: tool",
+			Minimal: "Toolbar",
+			Warning: pending,
+		}
+		if pending {
+			status.Text = "PREVIEW paused | " + status.Text
+			status.Compact = "PREVIEW | " + status.Compact
+			status.Minimal = "PREVIEW | Toolbar"
+		}
+		return status
 	}
 	if e.Tool == ToolText {
-		return fmt.Sprintf("%s/%s", e.Text.FG, e.Text.BG)
+		return StatusInfo{Text: fmt.Sprintf("%s/%s", e.Text.FG, e.Text.BG)}
 	}
 	if e.Tool == ToolPen {
 		position := "UP"
 		if e.PenDown {
 			position = "DOWN"
 		}
-		return "Pen " + position + ": " + paintName(e.Pen)
+		return StatusInfo{Text: "Pen " + position + ": " + paintName(e.Pen)}
+	}
+	step, next := "Start", "start"
+	switch e.Tool {
+	case ToolLine:
+		if e.Phase == 1 {
+			step, next = "End", "draw"
+		}
+	case ToolRectangle:
+		switch e.Phase {
+		case 0:
+			step = "First corner"
+		case 1:
+			step, next = "Opposite corner", "fill"
+		case 2:
+			step, next = "Fill", "draw"
+		}
+	case ToolOval:
+		switch e.Phase {
+		case 0:
+			step = "Center"
+		case 1:
+			step, next = "Circle size", "stretch"
+		case 2:
+			step, next = "Stretch", "fill"
+		case 3:
+			step, next = "Fill", "draw"
+		}
 	}
 	label := "Outline"
 	if e.brush() == &e.Fill {
 		label = "Fill"
 	}
-	return label + ": " + paintName(*e.brush())
+	status := StatusInfo{
+		Compact: step + " | Enter: " + next,
+		Minimal: "Enter: " + next,
+		Warning: pending,
+	}
+	if pending {
+		status.Compact = "PREVIEW | " + status.Compact
+		status.Minimal = "PREVIEW | " + status.Minimal
+	}
+	status.Text = status.Compact + " | " + label + ": " + paintName(*e.brush())
+	return status
 }

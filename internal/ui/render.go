@@ -66,7 +66,7 @@ func Render(screen Screen, e *editor.Editor) {
 	if e.Palette != 0 {
 		renderPalette(screen, e, w, h-1, colors, linux)
 	} else {
-		renderStatus(screen, e, w, h-1, base)
+		renderStatus(screen, e, w, h-1, base, colors, linux)
 	}
 	if e.Help {
 		renderHelp(screen, e.HelpScroll, w, h-1, base)
@@ -99,7 +99,7 @@ func toolbarLabels(kind int) []string {
 	return labels
 }
 
-func renderStatus(screen Screen, e *editor.Editor, w, y int, base tcell.Style) {
+func renderStatus(screen Screen, e *editor.Editor, w, y int, base tcell.Style, colors int, linux bool) {
 	active := int(e.Tool)
 	if active < 0 || active > 4 {
 		active = 0
@@ -108,14 +108,19 @@ func renderStatus(screen Screen, e *editor.Editor, w, y int, base tcell.Style) {
 		active = 6
 	}
 	minimum := fmt.Sprintf("%s%d", toolTiny[active], active+1)
-	right := e.Status()
-	if e.Help && e.Message == "" {
-		right = "Arrows/PgUp/PgDn: scroll | Esc: close"
+	status := e.Status()
+	statusStyle := base
+	if status.Warning {
+		statusStyle = base.Foreground(ColorFor(canvas.Yellow, false, colors, linux)).Bold(true)
+	} else if e.Message != "" {
+		statusStyle = base.Bold(true)
 	}
 	// Reserve the active tool even when a long prompt needs most of the row.
-	rightWidth := min(displaywidth.String(right), max(0, w-len(minimum)-1))
+	available := max(0, w-len(minimum)-1)
+	right := statusText(status, available)
+	rightWidth := min(displaywidth.String(right), available)
 	if w <= len(minimum) {
-		putText(screen, 0, y, minimum, w, base.Reverse(true).Bold(true))
+		putText(screen, 0, y, minimum, w, statusStyle.Reverse(true).Bold(true))
 		return
 	}
 	leftWidth := w
@@ -157,12 +162,23 @@ func renderStatus(screen Screen, e *editor.Editor, w, y int, base tcell.Style) {
 		}
 	}
 	if rightWidth > 0 {
-		style := base
-		if e.Message != "" {
-			style = style.Bold(true)
-		}
-		putText(screen, w-rightWidth, y, right, rightWidth, style)
+		putText(screen, w-rightWidth, y, right, rightWidth, statusStyle)
 	}
+}
+
+func statusText(status editor.StatusInfo, width int) string {
+	for _, text := range []string{status.Text, status.Compact, status.Minimal} {
+		if text != "" && displaywidth.String(text) <= width {
+			return text
+		}
+	}
+	if status.Warning {
+		return "PREVIEW"
+	}
+	if status.Minimal != "" {
+		return status.Minimal
+	}
+	return status.Text
 }
 
 func renderPalette(screen Screen, e *editor.Editor, w, y, colors int, linux bool) {
