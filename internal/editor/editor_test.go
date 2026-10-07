@@ -64,7 +64,7 @@ func TestTextAndPenStatusDoNotWarnAboutPreviews(t *testing.T) {
 		t.Fatalf("text status = %+v", status)
 	}
 	e.SwitchTool(ToolPen)
-	for _, want := range []string{"Pen UP: *", "Pen DOWN: *", "Pen UP: *"} {
+	for _, want := range []string{"Pen UP: * white/black", "Pen DOWN: * white/black", "Pen UP: * white/black"} {
 		if status := e.Status(); status.Warning || status.Text != want {
 			t.Fatalf("pen status = %+v, want %q without preview warning", status, want)
 		}
@@ -265,7 +265,7 @@ func TestHelpAndPalettePreservePreview(t *testing.T) {
 	e.Enter()
 	e.Move(4, 4)
 	p := e.Preview()
-	key(e, tcell.KeyF7)
+	key(e, tcell.KeyF8)
 	key(e, tcell.KeyDown)
 	key(e, tcell.KeyEsc)
 	key(e, tcell.KeyF6)

@@ -197,7 +197,7 @@ func TestPausedPreviewKeepsWarningAndOverlayControls(t *testing.T) {
 		want string
 	}{
 		{"toolbar", tcell.KeyTab, "Enter: activate"},
-		{"help", tcell.KeyF7, "Esc: close"},
+		{"help", tcell.KeyF8, "Esc: close"},
 	} {
 		t.Run(overlay.name, func(t *testing.T) {
 			e := newEditor(t)
@@ -256,11 +256,11 @@ func TestRenderingSmallScreensNeverWritesOutside(t *testing.T) {
 func TestToolbarSelectionAndActiveToolAreVisible(t *testing.T) {
 	e := newEditor(t)
 	e.SwitchTool(editor.ToolPen)
-	e.Toolbar, e.ToolbarIndex = true, 6
+	e.Toolbar, e.ToolbarIndex = true, 7
 	s := newScreen(140, 4, 16)
 	Render(s, e)
 	row := s.row(3)
-	for _, item := range []string{"Pen [F5]", "Help [F7]"} {
+	for _, item := range []string{"Pen [F5]", "Help [F8]"} {
 		x := strings.Index(row, item)
 		if x < 0 {
 			t.Fatalf("missing %q in %q", item, row)
@@ -269,7 +269,7 @@ func TestToolbarSelectionAndActiveToolAreVisible(t *testing.T) {
 		if !style.HasReverse() {
 			t.Fatalf("%q lacks a visible selection", item)
 		}
-		if item == "Help [F7]" && !style.HasUnderline() {
+		if item == "Help [F8]" && !style.HasUnderline() {
 			t.Fatal("toolbar arrow selection is not underlined")
 		}
 	}

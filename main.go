@@ -44,7 +44,7 @@ func parseOptions(args []string, out io.Writer) (options, error) {
 		fmt.Fprintln(out, "  Existing file: open the drawing for editing.")
 		fmt.Fprintln(out, "  Missing file: start a new drawing and save to that filename.")
 		fmt.Fprintln(out, "  Omitted: start a new drawing and save to a timestamped .tdoodle file in the current directory.")
-		fmt.Fprintln(out, "\nF7 opens drawing help; Ctrl+C twice saves and quits.")
+		fmt.Fprintln(out, "\nF7 opens the picker; F8 opens drawing help; Ctrl+C twice saves and quits.")
 		fmt.Fprintln(out, "\nOptions:")
 		f.PrintDefaults()
 		fmt.Fprintln(out, "  -h, --help\n        show this command-line help (-help also works)")
@@ -168,7 +168,7 @@ func run(args []string, out, errOut io.Writer) error {
 				if pasting {
 					// Paste is text only: escape sequences and control characters
 					// cannot accidentally commit a shape or quit the application.
-					if e.Tool == editor.ToolText && !e.Help && e.Palette == 0 && !e.Toolbar && ev.Key() == tcell.KeyRune && ev.Modifiers() == tcell.ModNone {
+					if e.Tool == editor.ToolText && !e.Help && e.Palette == 0 && !e.Toolbar && !e.Picker && ev.Key() == tcell.KeyRune && ev.Modifiers() == tcell.ModNone {
 						for _, r := range ev.Str() {
 							if r >= 32 && r <= 126 {
 								e.Type(r)

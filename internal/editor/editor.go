@@ -49,6 +49,9 @@ type Editor struct {
 	Phase                    int
 	Text, Outline, Fill, Pen canvas.Paint
 	PenDown                  bool
+	Picker                   bool
+	PickerCursor             canvas.Point
+	pickerOffset             canvas.Point
 	Palette, PaletteIndex    int
 	Toolbar                  bool
 	ToolbarIndex             int
@@ -85,25 +88,35 @@ func (e *Editor) Resize(width, height int) {
 }
 
 func (e *Editor) ensureVisible() {
-	e.Cursor.X = min(max(e.Cursor.X, 0), e.Doc.Width-1)
-	e.Cursor.Y = min(max(e.Cursor.Y, 0), e.Doc.Height-1)
-	if e.Cursor.X < e.Offset.X {
-		e.Offset.X = e.Cursor.X
+	cursor := &e.Cursor
+	if e.Picker {
+		cursor = &e.PickerCursor
 	}
-	if e.Cursor.Y < e.Offset.Y {
-		e.Offset.Y = e.Cursor.Y
+	cursor.X = min(max(cursor.X, 0), e.Doc.Width-1)
+	cursor.Y = min(max(cursor.Y, 0), e.Doc.Height-1)
+	if cursor.X < e.Offset.X {
+		e.Offset.X = cursor.X
 	}
-	if e.Cursor.X >= e.Offset.X+e.viewWidth {
-		e.Offset.X = e.Cursor.X - e.viewWidth + 1
+	if cursor.Y < e.Offset.Y {
+		e.Offset.Y = cursor.Y
 	}
-	if e.Cursor.Y >= e.Offset.Y+e.viewHeight {
-		e.Offset.Y = e.Cursor.Y - e.viewHeight + 1
+	if cursor.X >= e.Offset.X+e.viewWidth {
+		e.Offset.X = cursor.X - e.viewWidth + 1
+	}
+	if cursor.Y >= e.Offset.Y+e.viewHeight {
+		e.Offset.Y = cursor.Y - e.viewHeight + 1
 	}
 	e.Offset.X = min(max(e.Offset.X, 0), max(0, e.Doc.Width-e.viewWidth))
 	e.Offset.Y = min(max(e.Offset.Y, 0), max(0, e.Doc.Height-e.viewHeight))
 }
 
 func (e *Editor) Move(dx, dy int) {
+	if e.Picker {
+		e.PickerCursor.X += dx
+		e.PickerCursor.Y += dy
+		e.ensureVisible()
+		return
+	}
 	old := e.Cursor
 	e.Cursor.X += dx
 	e.Cursor.Y += dy
@@ -136,6 +149,7 @@ func (e *Editor) brush() *canvas.Paint {
 }
 
 func (e *Editor) SwitchTool(tool Tool) {
+	e.closePicker()
 	e.FinishStroke()
 	e.Phase, e.Palette = 0, 0
 	e.PenDown, e.Toolbar, e.Help = false, false, false
@@ -145,6 +159,7 @@ func (e *Editor) SwitchTool(tool Tool) {
 }
 
 func (e *Editor) cancel() {
+	e.closePicker()
 	e.Phase = 0
 	e.PenDown = false
 	e.FinishStroke()
@@ -197,6 +212,10 @@ func (e *Editor) Preview() map[canvas.Point]canvas.Cell {
 }
 
 func (e *Editor) Enter() {
+	if e.Picker {
+		e.samplePicker()
+		return
+	}
 	switch e.Tool {
 	case ToolText:
 		e.Cursor.X = 0
@@ -257,6 +276,9 @@ func (e *Editor) startFill() {
 }
 
 func (e *Editor) Backspace() {
+	if e.Picker {
+		return
+	}
 	if e.Tool == ToolText {
 		if e.Cursor.X > 0 {
 			e.Move(-1, 0)
@@ -311,6 +333,9 @@ func cycle(p *canvas.Paint, fill bool) {
 }
 
 func (e *Editor) Type(r rune) {
+	if e.Picker {
+		return
+	}
 	if r < 32 || r > 126 {
 		e.Message = "Use printable ASCII characters"
 		return
@@ -344,6 +369,7 @@ func (e *Editor) SetColor(color canvas.Color) {
 }
 
 func (e *Editor) TogglePalette() {
+	e.closePicker()
 	if e.Palette == 1 {
 		e.Palette = 2
 	} else {
@@ -424,6 +450,7 @@ func (e *Editor) FinishStroke() {
 }
 
 func (e *Editor) Undo() {
+	e.closePicker()
 	if e.Phase > 0 {
 		e.cancel()
 		return
@@ -504,11 +531,16 @@ func (e *Editor) HandleKey(key *tcell.EventKey, now time.Time) Action {
 		}
 		return ActionNone
 	}
-	if key.Key() == tcell.KeyF7 {
+	if key.Key() == tcell.KeyF8 {
+		e.closePicker()
 		e.Help = !e.Help
 		e.HelpScroll = 0
 		e.Palette = 0
 		e.Toolbar = false
+		return ActionNone
+	}
+	if key.Key() == tcell.KeyF7 {
+		e.TogglePicker()
 		return ActionNone
 	}
 	if key.Key() == tcell.KeyF6 {
@@ -560,14 +592,16 @@ func (e *Editor) HandleKey(key *tcell.EventKey, now time.Time) Action {
 		case tcell.KeyEsc, tcell.KeyTab:
 			e.Toolbar = false
 		case tcell.KeyLeft, tcell.KeyUp:
-			e.ToolbarIndex = (e.ToolbarIndex + 6) % 7
+			e.ToolbarIndex = (e.ToolbarIndex + 7) % 8
 		case tcell.KeyRight, tcell.KeyDown:
-			e.ToolbarIndex = (e.ToolbarIndex + 1) % 7
+			e.ToolbarIndex = (e.ToolbarIndex + 1) % 8
 		case tcell.KeyEnter:
 			if e.ToolbarIndex < 5 {
 				e.SwitchTool(Tool(e.ToolbarIndex))
 			} else if e.ToolbarIndex == 5 {
 				e.TogglePalette()
+			} else if e.ToolbarIndex == 6 {
+				e.TogglePicker()
 			} else {
 				e.Help = true
 				e.HelpScroll = 0
@@ -576,11 +610,18 @@ func (e *Editor) HandleKey(key *tcell.EventKey, now time.Time) Action {
 		}
 		return ActionNone
 	}
+	if e.Picker {
+		switch key.Key() {
+		case tcell.KeyRune, tcell.KeyDelete, tcell.KeyBackspace, tcell.KeyBackspace2:
+			return ActionNone
+		}
+	}
 	if key.Modifiers()&tcell.ModAlt != 0 {
 		return ActionNone
 	}
 	switch key.Key() {
 	case tcell.KeyTab:
+		e.closePicker()
 		e.Toolbar = true
 		e.ToolbarIndex = int(e.Tool)
 	case tcell.KeyLeft:
@@ -592,9 +633,9 @@ func (e *Editor) HandleKey(key *tcell.EventKey, now time.Time) Action {
 	case tcell.KeyDown:
 		e.Move(0, 1)
 	case tcell.KeyHome:
-		e.Move(-e.Cursor.X, 0)
+		e.Move(-e.DisplayCursor().X, 0)
 	case tcell.KeyEnd:
-		e.Move(e.Doc.Width-1-e.Cursor.X, 0)
+		e.Move(e.Doc.Width-1-e.DisplayCursor().X, 0)
 	case tcell.KeyPgUp:
 		e.Move(0, -e.viewHeight)
 	case tcell.KeyPgDn:
@@ -602,7 +643,11 @@ func (e *Editor) HandleKey(key *tcell.EventKey, now time.Time) Action {
 	case tcell.KeyEnter:
 		e.Enter()
 	case tcell.KeyEsc:
-		e.cancel()
+		if e.Picker {
+			e.closePicker()
+		} else {
+			e.cancel()
+		}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		e.Backspace()
 	case tcell.KeyDelete:
@@ -655,6 +700,7 @@ func paintName(p canvas.Paint) string {
 type StatusInfo struct {
 	Text, Compact, Minimal string
 	Warning                bool
+	Fallback               string
 }
 
 func (e *Editor) Status() StatusInfo {
@@ -662,6 +708,9 @@ func (e *Editor) Status() StatusInfo {
 		return StatusInfo{Text: e.Message}
 	}
 	pending := e.Phase > 0 && (e.Tool == ToolLine || e.Tool == ToolRectangle || e.Tool == ToolOval)
+	if e.Picker {
+		return e.pickerStatus(pending)
+	}
 	if e.Help {
 		status := StatusInfo{
 			Text:    "Arrows/PgUp/PgDn: scroll | Esc: close",
@@ -698,7 +747,8 @@ func (e *Editor) Status() StatusInfo {
 		if e.PenDown {
 			position = "DOWN"
 		}
-		return StatusInfo{Text: "Pen " + position + ": " + paintName(e.Pen)}
+		text := "Pen " + position + ": " + paintName(e.Pen)
+		return StatusInfo{Text: text + " " + string(e.Pen.FG) + "/" + string(e.Pen.BG), Compact: text}
 	}
 	step, next := "Start", "start"
 	switch e.Tool {
@@ -740,6 +790,7 @@ func (e *Editor) Status() StatusInfo {
 		status.Compact = "PREVIEW | " + status.Compact
 		status.Minimal = "PREVIEW | " + status.Minimal
 	}
-	status.Text = status.Compact + " | " + label + ": " + paintName(*e.brush())
+	brush := e.brush()
+	status.Text = status.Compact + " | " + label + ": " + paintName(*brush) + " " + string(brush.FG) + "/" + string(brush.BG)
 	return status
 }

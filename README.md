@@ -31,7 +31,8 @@ Return progresses through the phases of your brush's drawing, and backspace regr
 | F4 | Line: Enter at start and end |
 | F5 | Pen: Enter toggles pen down/up; move to paint; type to change character |
 | F6 | Open foreground colors; press again for background colors |
-| F7 | Open/close help; arrows and Page Up/Down scroll |
+| F7 | Picker: move sampler; Enter copies character/colors; Escape cancels |
+| F8 | Open/close help; arrows and Page Up/Down scroll |
 | Tab | Focus toolbar; arrows select; Enter activates |
 | Backspace | Text: move left and erase; shape: return to previous phase |
 | Delete | Text: erase current cell; shape/pen: select erase brush |
@@ -51,6 +52,13 @@ of brush details; very narrow terminals show just the warning. Toolbar and help
 show a paused-preview warning while the shape remains unfinished.
 Escape and switching tools cancel the preview. A completed shape or pen stroke
 is one undo step. 
+
+F7 opens a separate picker cursor in any drawing phase. Move to a source cell
+with arrows, Home/End, or Page Up/Down; Enter copies its character and both colors
+to the active outline, fill, or pen brush, then returns to the drawing cursor.
+Text copies colors only. The picker reads canvas cells beneath previews; a
+sampled space stays a literal space. Escape or F7 cancels. Entering the picker
+ends an active pen stroke and lifts the pen. Help is the last toolbar item, on F8.
 
 ## Saving and recovery
 

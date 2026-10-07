@@ -78,7 +78,7 @@ func TestParseOptionsHelp(t *testing.T) {
 			for _, want := range []string{
 				"terminal drawing tool", "text, lines, rectangles, ovals, and freehand marks",
 				"[filename]", "Filename (optional)", "Existing file", "Missing file",
-				"timestamped .tdoodle file", "current directory", "F7", "Ctrl+C twice",
+				"timestamped .tdoodle file", "current directory", "F7 opens the picker", "F8 opens drawing help", "Ctrl+C twice",
 				"-aspect", "default 2", "-autosave", "default 15s", "-h, --help",
 			} {
 				if !strings.Contains(help, want) {
