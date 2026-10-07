@@ -2,12 +2,75 @@ package editor
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gdamore/tcell/v3"
 	"tdoodle/internal/canvas"
 )
+
+func TestShapeStatusFollowsDrawingPhases(t *testing.T) {
+	tests := []struct {
+		tool  Tool
+		steps []struct{ step, next, brush string }
+	}{
+		{ToolLine, []struct{ step, next, brush string }{
+			{"Start", "start", "Outline"},
+			{"End", "draw", "Outline"},
+		}},
+		{ToolRectangle, []struct{ step, next, brush string }{
+			{"First corner", "start", "Outline"},
+			{"Opposite corner", "fill", "Outline"},
+			{"Fill", "draw", "Fill"},
+		}},
+		{ToolOval, []struct{ step, next, brush string }{
+			{"Center", "start", "Outline"},
+			{"Circle size", "stretch", "Outline"},
+			{"Stretch", "fill", "Outline"},
+			{"Fill", "draw", "Fill"},
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.tool.String(), func(t *testing.T) {
+			e := newTestEditor(t)
+			e.SwitchTool(tt.tool)
+			e.Cursor = canvas.Point{X: 5, Y: 5}
+			for phase, step := range tt.steps {
+				status := e.Status()
+				for _, want := range []string{step.step, "Enter: " + step.next, step.brush + ":"} {
+					if !strings.Contains(status.Text, want) {
+						t.Fatalf("phase %d: status %q is missing %q", phase, status.Text, want)
+					}
+				}
+				if status.Warning != (phase > 0) || strings.Contains(status.Text, "PREVIEW") != (phase > 0) {
+					t.Fatalf("phase %d: unexpected preview warning %+v", phase, status)
+				}
+				if phase > 0 {
+					e.Move(2, 1)
+				}
+				e.Enter()
+			}
+			if status := e.Status(); status.Warning || strings.Contains(status.Text, "PREVIEW") || e.Phase != 0 {
+				t.Fatalf("completed shape retained preview warning: %+v, phase %d", status, e.Phase)
+			}
+		})
+	}
+}
+
+func TestTextAndPenStatusDoNotWarnAboutPreviews(t *testing.T) {
+	e := newTestEditor(t)
+	if status := e.Status(); status.Warning || status.Text != "white/black" {
+		t.Fatalf("text status = %+v", status)
+	}
+	e.SwitchTool(ToolPen)
+	for _, want := range []string{"Pen UP: *", "Pen DOWN: *", "Pen UP: *"} {
+		if status := e.Status(); status.Warning || status.Text != want {
+			t.Fatalf("pen status = %+v, want %q without preview warning", status, want)
+		}
+		e.Enter()
+	}
+}
 
 func newTestEditor(t *testing.T) *Editor {
 	t.Helper()

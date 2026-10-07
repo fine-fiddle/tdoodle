@@ -9,6 +9,7 @@ import (
 var helpText = []string{
 	"Up/Down or Page Up/Down scroll; Home starts; F7 / Esc closes this help.",
 	"Arrows move. For shapes, press Enter at each ->; the last Enter draws.",
+	"Status shows the current step and next Enter action; yellow PREVIEW means unfinished.",
 	"Backspace goes back one shape step. Esc or another tool cancels the preview.",
 	"",
 	"F1 TEXT - Place characters anywhere.",
