@@ -177,3 +177,92 @@ func TestPastedControlsCannotQuitOrCommitShapes(t *testing.T) {
 		}
 	}
 }
+
+func TestPickerPasteCannotPaintSampleOrDispatchControls(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drawing.tdoodle")
+	doc, err := canvas.New(12, 8, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := canvas.Point{X: 4, Y: 1}
+	cell := canvas.Cell{Rune: '#', FG: canvas.Orange, BG: canvas.Blue}
+	doc.Set(source, cell)
+	if err := canvas.Save(path, doc); err != nil {
+		t.Fatal(err)
+	}
+	s := newAppScreen(100, 24)
+	s.key(tcell.KeyF7)
+	for i := 0; i < 4; i++ {
+		s.key(tcell.KeyRight)
+	}
+	s.key(tcell.KeyDown)
+	s.events <- tcell.NewEventPaste(true)
+	s.text("X")
+	s.text("AB")
+	s.key(tcell.KeyEnter)
+	s.key(tcell.KeyEsc)
+	s.key(tcell.KeyF1)
+	s.key(tcell.KeyF8)
+	s.key(tcell.KeyDelete)
+	s.quit()
+	s.events <- tcell.NewEventPaste(false)
+	s.key(tcell.KeyEnter)
+	s.text("Z")
+	s.quit()
+	tcell.ShimScreen(s)
+	var out bytes.Buffer
+	if err := run([]string{"-autosave", "0", path}, &out, &out); err != nil {
+		t.Fatal(err)
+	}
+	got, err := canvas.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.Set(canvas.Point{}, canvas.Cell{Rune: 'Z', FG: cell.FG, BG: cell.BG})
+	for i, want := range doc.Cells {
+		if got.Cells[i] != want {
+			t.Fatalf("picker/paste changed cell %d: got %+v, want %+v", i, got.Cells[i], want)
+		}
+	}
+}
+
+func TestApplicationPenUsesPickedBrushAtOriginalCursor(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "drawing.tdoodle")
+	doc, err := canvas.New(12, 8, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := canvas.Cell{Rune: '@', FG: canvas.Red, BG: canvas.Blue}
+	doc.Set(canvas.Point{X: 4, Y: 1}, cell)
+	if err := canvas.Save(path, doc); err != nil {
+		t.Fatal(err)
+	}
+	s := newAppScreen(100, 24)
+	s.key(tcell.KeyF5)
+	s.key(tcell.KeyF7)
+	for i := 0; i < 4; i++ {
+		s.key(tcell.KeyRight)
+	}
+	s.key(tcell.KeyDown)
+	s.key(tcell.KeyEnter)
+	s.key(tcell.KeyEnter)
+	s.key(tcell.KeyRight)
+	s.key(tcell.KeyEsc)
+	s.quit()
+	tcell.ShimScreen(s)
+	var out bytes.Buffer
+	if err := run([]string{"-autosave", "0", path}, &out, &out); err != nil {
+		t.Fatal(err)
+	}
+	got, err := canvas.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.Set(canvas.Point{}, cell)
+	doc.Set(canvas.Point{X: 1}, cell)
+	for i, want := range doc.Cells {
+		if got.Cells[i] != want {
+			t.Fatalf("sampled pen brush changed cell %d: got %+v, want %+v", i, got.Cells[i], want)
+		}
+	}
+}

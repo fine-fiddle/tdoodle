@@ -38,6 +38,7 @@ func Render(screen Screen, e *editor.Editor) {
 	linux := os.Getenv("TERM") == "linux"
 	blank := canvas.Blank()
 	preview := e.Preview()
+	cursor := e.DisplayCursor()
 	for y := 0; y < h-1; y++ {
 		for x := 0; x < w; x++ {
 			point := canvas.Point{X: x + e.Offset.X, Y: y + e.Offset.Y}
@@ -45,7 +46,8 @@ func Render(screen Screen, e *editor.Editor) {
 			if e.Doc != nil {
 				cell = e.Doc.At(point)
 			}
-			if overlay, ok := preview[point]; ok {
+			// Reveal the source cell under the sampler, even beneath a preview.
+			if overlay, ok := preview[point]; ok && !(e.Picker && point == cursor) {
 				cell = overlay
 			}
 			glyph := cell.Rune
@@ -53,8 +55,14 @@ func Render(screen Screen, e *editor.Editor) {
 				glyph = ' '
 			}
 			style := cellStyle(cell, colors, linux)
-			if point == e.Cursor && !e.Help && e.Palette == 0 && !e.Toolbar {
+			if e.Picker && point == e.Cursor {
+				style = style.Underline(true)
+			}
+			if point == cursor && !e.Help && e.Palette == 0 && !e.Toolbar {
 				style = style.Reverse(true)
+				if e.Picker {
+					style = style.Bold(true)
+				}
 			}
 			screen.Put(x, y, string(glyph), style)
 		}
@@ -71,7 +79,7 @@ func Render(screen Screen, e *editor.Editor) {
 	if e.Help {
 		renderHelp(screen, e.HelpScroll, w, h-1, base)
 	}
-	cx, cy := e.Cursor.X-e.Offset.X, e.Cursor.Y-e.Offset.Y
+	cx, cy := cursor.X-e.Offset.X, cursor.Y-e.Offset.Y
 	if !e.Help && e.Palette == 0 && !e.Toolbar && cx >= 0 && cx < w && cy >= 0 && cy < h-1 {
 		screen.ShowCursor(cx, cy)
 	} else {
@@ -80,9 +88,9 @@ func Render(screen Screen, e *editor.Editor) {
 	screen.Show()
 }
 
-var toolNames = []string{"Text", "Oval", "Rectangle", "Line", "Pen", "Colors", "Help"}
-var toolShort = []string{"Text", "Oval", "Rect", "Line", "Pen", "Color", "Help"}
-var toolTiny = []string{"T", "O", "R", "L", "P", "C", "?"}
+var toolNames = []string{"Text", "Oval", "Rectangle", "Line", "Pen", "Colors", "Picker", "Help"}
+var toolShort = []string{"Text", "Oval", "Rect", "Line", "Pen", "Color", "Pick", "Help"}
+var toolTiny = []string{"T", "O", "R", "L", "P", "C", "E", "?"}
 
 func toolbarLabels(kind int) []string {
 	labels := make([]string, len(toolNames))
@@ -104,8 +112,11 @@ func renderStatus(screen Screen, e *editor.Editor, w, y int, base tcell.Style, c
 	if active < 0 || active > 4 {
 		active = 0
 	}
-	if e.Help {
+	if e.Picker {
 		active = 6
+	}
+	if e.Help {
+		active = 7
 	}
 	minimum := fmt.Sprintf("%s%d", toolTiny[active], active+1)
 	status := e.Status()
@@ -171,6 +182,9 @@ func statusText(status editor.StatusInfo, width int) string {
 		if text != "" && displaywidth.String(text) <= width {
 			return text
 		}
+	}
+	if status.Fallback != "" {
+		return status.Fallback
 	}
 	if status.Warning {
 		return "PREVIEW"
